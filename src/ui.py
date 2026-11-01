@@ -751,11 +751,6 @@ def setup_page(title: str) -> None:
             transform: scale(1.2) !important;
             transform-origin: center !important;
         }}
-        [data-testid="stRadio"] svg,
-        [data-testid="stCheckbox"] svg,
-        [data-baseweb="slider"] div[role="slider"] {{
-            transform: scale(1.2) !important;
-        }}
         h1 {{
             font-size: 40px !important;
         }}

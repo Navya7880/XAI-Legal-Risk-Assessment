@@ -16,7 +16,6 @@ def apply_style() -> None:
         }
         [data-testid="stAppViewContainer"] p,
         [data-testid="stAppViewContainer"] li,
-        [data-testid="stAppViewContainer"] label,
         [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] {
             color: #1B2733;
         }
@@ -30,7 +29,6 @@ def apply_style() -> None:
             background: linear-gradient(180deg, #0F2A47 0%, #14707A 100%) !important;
             color: #FFFFFF !important;
         }
-        [data-testid="stSidebar"] *, [data-testid="stSidebar"] label,
         [data-testid="stSidebar"] p, [data-testid="stSidebar"] span {
             color: #FFFFFF !important;
         }
@@ -137,7 +135,6 @@ def apply_style() -> None:
         [data-testid="stWidgetLabel"] label,
         [role="radiogroup"] label,
         [data-testid="stCheckbox"] label,
-        [data-testid="stSlider"] label,
         [data-testid="stSelectbox"] label {
             color: #1B2733 !important;
         }
@@ -174,91 +171,81 @@ def apply_style() -> None:
             font-weight: 700 !important;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .stButton > button[kind="primary"], .stFormSubmitButton > button,
-        .stDownloadButton > button, .stPageLink > a {
-            background: linear-gradient(135deg, #0F2A47 0%, #14707A 100%) !important;
-            color: #FFFFFF !important;
-            border: 1px solid transparent !important;
-        }
-        .stButton > button[kind="primary"] *,
-        .stFormSubmitButton > button *,
-        .stDownloadButton > button *,
-        .stPageLink > a *,
-        [data-testid^="stBaseButton-primary"],
-        [data-testid^="stBaseButton-primary"] * {
-            color: #FFFFFF !important;
-            -webkit-text-fill-color: #FFFFFF !important;
-        }
         [data-testid="stBaseButton-primary"],
         [data-testid="stBaseButton-primary"]:hover,
+        [data-testid="stBaseButton-primary"]:focus,
+        [data-testid="stBaseButton-primary"]:focus-visible,
         [data-testid="stBaseButton-primary"]:active,
         [data-testid="stBaseButton-primary"]:disabled,
-        .stButton > button[kind="primary"],
-        .stButton > button[kind="primary"]:hover,
-        .stButton > button[kind="primary"]:active,
-        .stButton > button[kind="primary"]:disabled,
         .stFormSubmitButton > button,
         .stFormSubmitButton > button:hover,
-        .stFormSubmitButton > button:active,
-        .stFormSubmitButton > button:disabled {
-            background: linear-gradient(135deg, #0F2A47 0%, #14707A 100%) !important;
-            color: #FFFFFF !important;
-            -webkit-text-fill-color: #FFFFFF !important;
-            border: 1px solid transparent !important;
-            opacity: 1 !important;
-        }
-        .stButton > button[kind="secondary"] {
-            background: #FFFFFF !important;
-            color: #14707A !important;
-            border: 1px solid #14707A !important;
-        }
-        .stButton > button:hover, .stDownloadButton > button:hover,
-        .stPageLink > a:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 7px 16px rgba(15,42,71,0.18);
-        }
-        .stButton > button[kind="primary"]:hover *,
-        .stButton > button[kind="primary"]:active *,
-        .stButton > button[kind="primary"]:disabled *,
-        .stFormSubmitButton > button:hover *,
-        .stFormSubmitButton > button:active *,
-        .stFormSubmitButton > button:disabled *,
-        .stDownloadButton > button,
-        .stDownloadButton > button:hover,
-        .stDownloadButton > button:active,
-        .stDownloadButton > button:disabled,
-        .stDownloadButton > button *,
-        .stPageLink > a,
-        .stPageLink > a:hover,
-        .stPageLink > a:active,
-        .stPageLink > a * {
-            color: #FFFFFF !important;
-            -webkit-text-fill-color: #FFFFFF !important;
-        }
-        .stButton > button,
-        .stButton > button:focus,
-        .stButton > button:focus-visible,
-        .stButton > button:hover,
-        .stButton > button:active,
-        .stButton > button:disabled,
-        .stFormSubmitButton > button,
         .stFormSubmitButton > button:focus,
         .stFormSubmitButton > button:focus-visible,
-        .stFormSubmitButton > button:hover,
         .stFormSubmitButton > button:active,
         .stFormSubmitButton > button:disabled,
         .stDownloadButton > button,
+        .stDownloadButton > button:hover,
         .stDownloadButton > button:focus,
         .stDownloadButton > button:focus-visible,
-        .stDownloadButton > button:hover,
         .stDownloadButton > button:active,
         .stDownloadButton > button:disabled {
+            background: linear-gradient(135deg, #0F2A47 0%, #14707A 100%) !important;
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
+            border: 1px solid transparent !important;
             opacity: 1 !important;
+        }
+        [data-testid="stBaseButton-primary"] *,
+        [data-testid="stBaseButton-primary"]:hover *,
+        [data-testid="stBaseButton-primary"]:focus *,
+        [data-testid="stBaseButton-primary"]:focus-visible *,
+        [data-testid="stBaseButton-primary"]:active *,
+        [data-testid="stBaseButton-primary"]:disabled *,
+        .stFormSubmitButton > button *,
+        .stDownloadButton > button *,
+        .stFormSubmitButton > button:hover *,
+        .stFormSubmitButton > button:focus *,
+        .stFormSubmitButton > button:focus-visible *,
+        .stFormSubmitButton > button:active *,
+        .stFormSubmitButton > button:disabled *,
+        .stDownloadButton > button:hover *,
+        .stDownloadButton > button:focus *,
+        .stDownloadButton > button:focus-visible *,
+        .stDownloadButton > button:active *,
+        .stDownloadButton > button:disabled * {
             color: #FFFFFF !important;
             -webkit-text-fill-color: #FFFFFF !important;
         }
-        .stButton > button:focus,
-        .stButton > button:focus-visible,
+        [data-testid="stBaseButton-secondary"],
+        [data-testid="stBaseButton-secondary"]:focus,
+        [data-testid="stBaseButton-secondary"]:focus-visible,
+        [data-testid="stBaseButton-secondary"]:active,
+        [data-testid="stBaseButton-secondary"]:disabled {
+            background: #FFFFFF !important;
+            color: #0F2A47 !important;
+            -webkit-text-fill-color: #0F2A47 !important;
+            border: 1px solid #14707A !important;
+            border-radius: 10px !important;
+        }
+        [data-testid="stBaseButton-secondary"]:hover {
+            background: #E3F2F1 !important;
+            color: #0F2A47 !important;
+            -webkit-text-fill-color: #0F2A47 !important;
+            border: 1px solid #14707A !important;
+        }
+        [data-testid="stBaseButton-secondary"] *,
+        [data-testid="stBaseButton-secondary"]:hover *,
+        [data-testid="stBaseButton-secondary"]:focus *,
+        [data-testid="stBaseButton-secondary"]:focus-visible *,
+        [data-testid="stBaseButton-secondary"]:active *,
+        [data-testid="stBaseButton-secondary"]:disabled * {
+            color: #0F2A47 !important;
+            -webkit-text-fill-color: #0F2A47 !important;
+        }
+        .stDownloadButton > button:hover, .stPageLink > a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 16px rgba(15,42,71,0.18);
+        }
         .stFormSubmitButton > button:focus,
         .stFormSubmitButton > button:focus-visible,
         .stDownloadButton > button:focus,
