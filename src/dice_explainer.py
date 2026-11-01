@@ -3,6 +3,10 @@
 
 from __future__ import annotations
 
+import time
+import queue
+import threading
+import itertools
 from typing import Any
 
 import dice_ml
@@ -49,6 +53,15 @@ class FeasibilityChecker:
         """Return pass/fail and the names of violated rules."""
 
         violations: list[str] = []
+
+        if "substance_treatment" in original and "substance_treatment" in counterfactual:
+            before = str(original["substance_treatment"]).strip().lower()
+            after = str(counterfactual["substance_treatment"]).strip().lower()
+            if before == "not_completed":
+                if after != "not_completed" and after != "completed":
+                    violations.append("substance_treatment_may_only_be_completed")
+            elif before != after:
+                violations.append("substance_treatment_must_stay_fixed")
 
         for feature, rule in self.monotonic_features.items():
             if feature not in original or feature not in counterfactual:
@@ -386,15 +399,37 @@ def _generate_with_method(
     )
 
 
+def _generate_with_time_limit(operation, timeout_seconds: float) -> Any:
+    result_queue = queue.Queue(maxsize=1)
+
+    def run_operation() -> None:
+        try:
+            result_queue.put(("result", operation()))
+        except BaseException as error:
+            result_queue.put(("error", error))
+
+    worker = threading.Thread(target=run_operation, daemon=True)
+    worker.start()
+    try:
+        status, value = result_queue.get(timeout=max(timeout_seconds, 0.1))
+        if status == "error":
+            raise value
+        return value
+    except queue.Empty:
+        raise TimeoutError("Counterfactual search exceeded the allowed time.")
+
+
 def generate_counterfactuals(
     model_result: dict[str, Any],
     record: dict[str, Any],
     total_cfs: int = 3,
     features_to_vary: list[str] | str = "all",
-    method: str = "genetic",
+    method: str = "random",
     immutable_features: list[str] | None = None,
     permitted_range: dict[str, Any] | None = None,
     constraint_mode: str = "full",
+    max_search_seconds: float = 15.0,
+    max_feasibility_retries: int = 2,
 ) -> pd.DataFrame:
     """
     Generate and verify DiCE counterfactual explanations.
@@ -419,6 +454,9 @@ def generate_counterfactuals(
         raise ValueError(
             "constraint_mode must be none, ranges, or full."
         )
+
+    max_search_seconds = min(max(0.1, float(max_search_seconds)), 15.0)
+    max_feasibility_retries = min(max(0, int(max_feasibility_retries)), 2)
 
     pipeline = model_result["pipeline"]
     features = list(model_result["features"])
@@ -467,6 +505,13 @@ def generate_counterfactuals(
             + (immutable_features or [])
         )
     )
+    if (
+        target == "risk_category"
+        and "substance_treatment" in features
+        and str(record.get("substance_treatment", "")).strip().lower()
+        in {"completed", "not_needed"}
+    ):
+        immutable.append("substance_treatment")
     # Dataset metadata may list protected attributes that are intentionally
     # excluded from the model pipeline (for example synthetic_group).
     immutable = [
@@ -579,6 +624,11 @@ def generate_counterfactuals(
                 float(dice_training_data["prior_offenses"].max()),
             ]
 
+    if target == "risk_category" and "substance_treatment" in selected_features:
+        original_treatment = str(record.get("substance_treatment", "")).strip().lower()
+        if original_treatment == "not_completed":
+            resolved_ranges["substance_treatment"] = ["not_completed", "completed"]
+
     continuous_features = [
         feature
         for feature in features
@@ -613,40 +663,77 @@ def generate_counterfactuals(
     # Generate counterfactuals.
     method_used = method
     method_notice = None
+    started_at = time.perf_counter()
 
     try:
+        def operation():
+            return _generate_with_method(
+                dice_data,
+                dice_model,
+                query,
+                total_cfs,
+                selected_features,
+                resolved_ranges,
+                method_used,
+            )
 
-        result = _generate_with_method(
-            dice_data,
-            dice_model,
-            query,
-            total_cfs,
-            selected_features,
-            resolved_ranges,
-            method,
-        )
+        remaining = max_search_seconds - (time.perf_counter() - started_at)
+        result = _generate_with_time_limit(operation, remaining)
+
+    except TimeoutError:
+        empty = pd.DataFrame(columns=features)
+        empty.attrs.update({
+            "method_used": method_used,
+            "method_notice": "The search reached its 15-second time limit.",
+            "constraint_mode": constraint_mode,
+            "generated_before_feasibility": 0,
+            "accepted_count": 0,
+            "rejected_count": 0,
+            "rejection_rate": 0.0,
+            "violated_rules": [],
+            "timed_out": True,
+        })
+        return empty
 
     except Exception as error:
-
         if method == "random":
-            raise
-
+            empty = pd.DataFrame(columns=features)
+            empty.attrs.update({
+                "method_used": method_used,
+                "method_notice": None,
+                "constraint_mode": constraint_mode,
+                "generated_before_feasibility": 0,
+                "accepted_count": 0,
+                "rejected_count": 0,
+                "rejection_rate": 0.0,
+                "violated_rules": [],
+                "timed_out": False,
+            })
+            return empty
         method_used = "random"
-
         method_notice = (
-            f"The {method} method failed. "
-            "Random generation was attempted instead. "
+            f"The {method} method failed. Random generation was attempted instead. "
             f"Reason: {error}"
         )
-
-        result = _generate_with_method(
-            dice_data,
-            dice_model,
-            query,
-            total_cfs,
-            selected_features,
-            resolved_ranges,
-            "random",
+        remaining = max_search_seconds - (time.perf_counter() - started_at)
+        if remaining <= 0:
+            empty = pd.DataFrame(columns=features)
+            empty.attrs.update({
+                "method_used": method_used,
+                "method_notice": method_notice,
+                "timed_out": True,
+                "accepted_count": 0,
+                "rejected_count": 0,
+                "rejection_rate": 0.0,
+                "violated_rules": [],
+            })
+            return empty
+        result = _generate_with_time_limit(
+            lambda: _generate_with_method(
+                dice_data, dice_model, query, total_cfs,
+                selected_features, resolved_ranges, "random",
+            ),
+            remaining,
         )
 
     # Extract counterfactual results.
@@ -733,6 +820,39 @@ def generate_counterfactuals(
     feasibility_spec = config.get("feasibility_spec", {})
 
     if constraint_mode == "full":
+        if not counterfactuals.empty:
+            for _retry in range(max_feasibility_retries):
+                remaining = max_search_seconds - (time.perf_counter() - started_at)
+                if remaining <= 0:
+                    break
+                checker_preview = FeasibilityChecker(feasibility_spec)
+                preview_passes = sum(
+                    checker_preview.check(candidate, record)[0]
+                    for _, candidate in counterfactuals.iterrows()
+                )
+                if preview_passes >= min(total_cfs, len(counterfactuals)):
+                    break
+                try:
+                    retry_result = _generate_with_time_limit(
+                        lambda: _generate_with_method(
+                            dice_data, dice_model, query,
+                            min(total_cfs * (2 + _retry), 10),
+                            selected_features, resolved_ranges, method_used,
+                        ),
+                        remaining,
+                    )
+                    retry_examples = retry_result.cf_examples_list
+                    if retry_examples and retry_examples[0].final_cfs_df is not None:
+                        retry_generated = retry_examples[0].final_cfs_df.copy()
+                        available = [feature for feature in features if feature in retry_generated.columns]
+                        if set(features).issubset(available):
+                            counterfactuals = pd.concat(
+                                [counterfactuals, retry_generated[features]],
+                                ignore_index=True,
+                            ).drop_duplicates()
+                except TimeoutError:
+                    break
+
         checker = FeasibilityChecker(feasibility_spec)
         feasible_rows = []
         violation_names = []
@@ -787,7 +907,148 @@ def generate_counterfactuals(
             .reset_index(drop=True)
         )
 
-    verified.attrs["method_used"] = method_used
+    exhaustive_candidates_found = 0
+    exhaustive_rejected = 0
+    exhaustive_passed_rules = 0
+    exhaustive_added = 0
+
+    if len(verified) < total_cfs:
+        exhaustive_features = [
+            feature
+            for feature in (
+                "program_completion",
+                "substance_treatment",
+                "employment_status",
+                "education_level",
+            )
+            if feature in selected_features
+        ]
+        if exhaustive_features:
+            value_options = []
+            for feature in exhaustive_features:
+                allowed = sorted(
+                    set(
+                        training_data[feature]
+                        .dropna()
+                        .astype(str)
+                        .tolist()
+                    )
+                )
+                if feature == "substance_treatment":
+                    original_treatment = str(
+                        record.get("substance_treatment", "")
+                    ).strip().lower()
+                    if original_treatment == "not_completed":
+                        allowed = ["not_completed", "completed"]
+                    else:
+                        allowed = [original_treatment]
+                if not allowed:
+                    continue
+                value_options.append((feature, allowed))
+
+            if value_options:
+                checker = (
+                    FeasibilityChecker(feasibility_spec)
+                    if constraint_mode == "full"
+                    else None
+                )
+                exhaustive_rows = []
+                for values in itertools.product(
+                    *(options for _, options in value_options)
+                ):
+                    candidate = record.copy()
+                    for (feature, _), value in zip(value_options, values):
+                        original = candidate[feature]
+                        candidate[feature] = (
+                            type(original)(value)
+                            if original is not None and isinstance(original, (int, float))
+                            else value
+                        )
+
+                    changed_fields = sum(
+                        1
+                        for feature in exhaustive_features
+                        if not _same_value(record[feature], candidate[feature])
+                    )
+                    if changed_fields == 0:
+                        continue
+                    candidate["__changed_fields__"] = changed_fields
+                    exhaustive_candidates_found += 1
+                    if checker is not None:
+                        passed, _ = checker.check(candidate, record)
+                        if not passed:
+                            exhaustive_rejected += 1
+                            continue
+                        exhaustive_passed_rules += 1
+                    else:
+                        exhaustive_passed_rules += 1
+                    exhaustive_rows.append(candidate)
+
+                if exhaustive_rows:
+                    exhaustive_df = pd.DataFrame(exhaustive_rows)
+                    predictions = pipeline.predict(
+                        exhaustive_df[features]
+                    )
+                    flipping = []
+                    for index, prediction in enumerate(predictions):
+                        candidate = exhaustive_df.iloc[index]
+                        if not _same_value(original_prediction, prediction) and (
+                            target != "risk_category"
+                            or _outcome_direction_consistent(
+                                original_prediction,
+                                prediction,
+                                record,
+                                candidate.to_dict(),
+                            )
+                        ):
+                            flipping.append(candidate)
+
+                    flipping.sort(key=lambda row: row["__changed_fields__"])
+                    existing_signatures = {
+                        tuple(
+                            str(row[feature]) for feature in features
+                        )
+                        for _, row in verified.iterrows()
+                    }
+                    added_rows = []
+                    for candidate in flipping:
+                        signature = tuple(str(candidate[feature]) for feature in features)
+                        if signature in existing_signatures:
+                            continue
+                        added_rows.append(candidate[features].to_dict())
+                        existing_signatures.add(signature)
+                        if len(verified) + len(added_rows) >= total_cfs:
+                            break
+
+                    if added_rows:
+                        verified = pd.concat(
+                            [
+                                verified,
+                                pd.DataFrame(added_rows, columns=features),
+                            ],
+                            ignore_index=True,
+                        )
+                        exhaustive_added = len(added_rows)
+
+    dice_count = len(verified) - exhaustive_added
+    alternative_sources = (
+        ["DiCE"] * max(dice_count, 0)
+        + ["complete search"] * exhaustive_added
+    )
+    if exhaustive_added:
+        verified.attrs["method_used"] = (
+            "DiCE + complete search"
+            if dice_count
+            else "complete search"
+        )
+    else:
+        verified.attrs["method_used"] = (
+            "complete search" if len(verified) == 0 and exhaustive_candidates_found else method_used
+        )
+    verified.attrs["alternative_sources"] = alternative_sources
+    verified.attrs["exhaustive_candidates_found"] = exhaustive_candidates_found
+    verified.attrs["exhaustive_rejected"] = exhaustive_rejected
+    verified.attrs["exhaustive_passed_rules"] = exhaustive_passed_rules
     verified.attrs["method_notice"] = method_notice
     verified.attrs["constraint_mode"] = constraint_mode
     verified.attrs["generated_before_feasibility"] = generated_before_feasibility

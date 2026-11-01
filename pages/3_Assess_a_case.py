@@ -97,6 +97,13 @@ with st.form(f"prediction_form_{dataset_name}"):
         with about_columns[2]:
             type_record = feature_form(data, ["offense_category"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
 
+        st.subheader("Support and rehabilitation")
+        support_columns = st.columns(2)
+        with support_columns[0]:
+            program_record = feature_form(data, ["program_completion"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
+        with support_columns[1]:
+            treatment_record = feature_form(data, ["substance_treatment"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
+
         st.subheader("Qualification")
         qualification_columns = st.columns(2)
         with qualification_columns[0]:
@@ -109,6 +116,8 @@ with st.form(f"prediction_form_{dataset_name}"):
         left_record.update(offense_record)
         left_record.update(type_record)
         middle_record = {}
+        middle_record.update(program_record)
+        middle_record.update(treatment_record)
         middle_record.update(work_record)
         right_record = {}
         right_record.update(education_record)

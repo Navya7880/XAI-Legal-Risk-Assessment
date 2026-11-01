@@ -35,9 +35,6 @@ model_name = (
 model_result = get_model(dataset_name, model_name)
 features = config["features"]
 immutable_features = config["immutable_features"]
-actionable_features = [
-    feature for feature in features if feature not in immutable_features
-]
 
 case_from_prediction = (
     st.session_state.get("latest_record")
@@ -53,6 +50,17 @@ if case_from_prediction:
     record = {feature: case_from_prediction[feature] for feature in features}
 else:
     record = data.iloc[0][features].to_dict()
+fixed_fields_for_case = list(immutable_features)
+if (
+    str(record.get("substance_treatment", "")).strip().lower()
+    in {"completed", "not_needed"}
+):
+    fixed_fields_for_case.append("substance_treatment")
+actionable_features = [
+    feature
+    for feature in features
+    if feature not in set(fixed_fields_for_case)
+]
 original_prediction = predict_record(model_result, record)
 prediction_label = str(original_prediction["prediction"])
 if dataset_name == "Legal risk (synthetic)" and prediction_label.lower() == "lower":
@@ -78,6 +86,11 @@ if not case_from_prediction:
     st.info("This is a real example row from the selected synthetic dataset.")
 if immutable_features:
     locked = [feature for feature in immutable_features if feature in features]
+    locked = list(dict.fromkeys(locked + [
+        feature
+        for feature in fixed_fields_for_case
+        if feature not in locked
+    ]))
     st.caption(
         f"Held fixed for this search: {', '.join(FEATURE_LABELS.get(item, item) for item in locked) or 'no model inputs'}."
         " These values stay fixed because they are not considered changeable in this example."
@@ -87,6 +100,10 @@ if immutable_features:
             f"{config['sensitive'].replace('_', ' ').title()} is excluded from the model "
             "and is never changed."
         )
+
+if str(original_prediction["prediction"]).lower() == "lower":
+    st.info("This result is already Lower, so no change is needed.")
+    st.stop()
 
 number_of_options = st.slider(
     "How many alternatives?",
@@ -101,7 +118,7 @@ realistic_constraints = st.toggle(
 with st.expander("Advanced settings", expanded=False):
     method = st.selectbox(
         "Search method",
-        ["genetic", "random", "kdtree"],
+        ["random", "kdtree", "genetic"],
         help="Different search strategies look for model inputs that change the predicted category.",
     )
     vary = st.multiselect(
@@ -124,9 +141,57 @@ with st.expander("Edit the starting case", expanded=False):
         label_map=config.get("display_labels", {}),
         option_map=config.get("display_options", {}),
         help_map=config.get("field_help", {}),
-        fixed_features=set(config.get("immutable_features", [])),
+        fixed_features=set(fixed_fields_for_case),
     )
     st.caption("Changing these values creates a what-if from the edited case.")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_counterfactual_search(
+    dataset_name: str,
+    model_name: str,
+    record_items: tuple,
+    vary_items: tuple,
+    number_of_options: int,
+    method_name: str,
+    realistic_constraints: bool,
+):
+    from src.dice_explainer import (
+        counterfactual_quality_metrics,
+        generate_counterfactuals,
+    )
+
+    cached_record = dict(record_items)
+    cached_model = get_model(dataset_name, model_name)
+    cached_config = DATASET_CONFIG[dataset_name]
+    started_at = time.perf_counter()
+    counterfactuals = generate_counterfactuals(
+        cached_model,
+        cached_record,
+        total_cfs=number_of_options,
+        features_to_vary=list(vary_items),
+        method=method_name,
+        immutable_features=cached_config["immutable_features"],
+        permitted_range=cached_config["permitted_range"],
+        constraint_mode="full" if realistic_constraints else "ranges",
+        max_search_seconds=15.0,
+        max_feasibility_retries=2,
+    )
+    runtime_seconds = time.perf_counter() - started_at
+    quality = counterfactual_quality_metrics(
+        cached_model,
+        cached_record,
+        counterfactuals,
+        number_of_options,
+        permitted_range=cached_config["permitted_range"],
+    )
+    quality["runtime"] = runtime_seconds
+    return (
+        counterfactuals,
+        quality,
+        dict(counterfactuals.attrs),
+        runtime_seconds,
+    )
 
 generate = st.button(
     "Find possible changes",
@@ -140,37 +205,27 @@ if generate:
     try:
         from src.dice_explainer import (
             compare_counterfactual,
-            counterfactual_quality_metrics,
-            generate_counterfactuals,
         )
 
         started_at = time.perf_counter()
         with st.spinner("Searching for alternatives and checking each with the model…"):
-            counterfactuals = generate_counterfactuals(
-                model_result,
-                record,
-                total_cfs=number_of_options,
-                features_to_vary=vary,
-                method=method,
-                immutable_features=immutable_features,
-                permitted_range=config["permitted_range"],
-                constraint_mode="full" if realistic_constraints else "ranges",
+            counterfactuals, quality, cached_attrs, runtime_seconds = (
+                cached_counterfactual_search(
+                    dataset_name,
+                    model_name,
+                    tuple(sorted(record.items())),
+                    tuple(vary),
+                    number_of_options,
+                    method,
+                    realistic_constraints,
+                )
             )
-            runtime_seconds = time.perf_counter() - started_at
-            quality = counterfactual_quality_metrics(
-                model_result,
-                record,
-                counterfactuals,
-                number_of_options,
-                permitted_range=config["permitted_range"],
-            )
-            quality["runtime"] = runtime_seconds
-        used_method = counterfactuals.attrs.get("method_used", method)
-        notice = counterfactuals.attrs.get("method_notice")
+        used_method = cached_attrs.get("method_used", method)
+        notice = cached_attrs.get("method_notice")
         if notice:
             st.warning(f"{notice} You can try another search method in Advanced settings.")
-        rejection_rate = counterfactuals.attrs.get("rejection_rate", 0.0)
-        rejected_count = counterfactuals.attrs.get("rejected_count", 0)
+        rejection_rate = cached_attrs.get("rejection_rate", 0.0)
+        rejected_count = cached_attrs.get("rejected_count", 0)
         st.caption(
             f"Feasibility post-filter: {rejected_count} rejected "
             f"({rejection_rate:.1%} rejection rate)."
@@ -188,17 +243,33 @@ if generate:
         st.subheader("Possible alternatives")
         st.caption(f"Search method used: {used_method}.")
         if counterfactuals.empty:
-            st.warning(
-                "No realistic change found for this case. Try allowing more fields to vary."
-            )
+            exhaustive_rejected = cached_attrs.get("exhaustive_rejected", 0)
+            exhaustive_candidates = cached_attrs.get("exhaustive_candidates_found", 0)
+            exhaustive_passed_rules = cached_attrs.get("exhaustive_passed_rules", 0)
+            if exhaustive_rejected and exhaustive_passed_rules == 0 and exhaustive_candidates:
+                st.warning(
+                    f"{exhaustive_rejected} candidates were found but rejected as unrealistic"
+                )
+            else:
+                st.warning(
+                    "No combination of the allowed changes alters the outcome for this case"
+                )
+            if realistic_constraints:
+                st.info("Try turning the constraints off to see what the model would need.")
         else:
             changed_counts = []
             chart_rows = []
+            alternative_sources = cached_attrs.get("alternative_sources", [])
             for index, row in counterfactuals.iterrows():
                 changes = compare_counterfactual(record, row)
                 changed_counts.append(len(changes))
                 candidate = row[features].to_dict()
                 new_prediction = predict_record(model_result, candidate)["prediction"]
+                source = (
+                    alternative_sources[index]
+                    if index < len(alternative_sources)
+                    else "DiCE"
+                )
                 changes_text = "<br>".join(
                     f"<strong>{config.get('display_labels', {}).get(change.feature, FEATURE_LABELS.get(change.feature, change.feature))}:</strong> "
                     f"{config.get('display_options', {}).get(change.feature, {}).get(str(change.original), str(change.original))} → "
@@ -207,6 +278,7 @@ if generate:
                 )
                 st.markdown(
                     f'<div class="xai-card"><h3>Option {index + 1}</h3>'
+                    f"<p><strong>Source:</strong> {source}</p>"
                     f"<p>{changes_text}<br><strong>New model result:</strong> "
                     f"{new_prediction}</p></div>",
                     unsafe_allow_html=True,

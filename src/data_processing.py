@@ -26,6 +26,8 @@ LEGAL_FEATURES = [
     "age",
     "prior_offenses",
     "offense_category",
+    "program_completion",
+    "substance_treatment",
     "employment_status",
     "education_level",
 ]
@@ -36,6 +38,8 @@ LEGAL_DISPLAY_LABELS = {
     "offense_category": "Type of current offense",
     "employment_status": "Work status",
     "education_level": "Highest education",
+    "program_completion": "Completed a rehabilitation or skills program",
+    "substance_treatment": "Substance-use treatment",
 }
 
 LEGAL_DISPLAY_OPTIONS = {
@@ -56,6 +60,15 @@ LEGAL_DISPLAY_OPTIONS = {
         "traffic": "Traffic",
         "violent": "Violent",
     },
+    "program_completion": {
+        "yes": "Yes",
+        "no": "No",
+    },
+    "substance_treatment": {
+        "completed": "Completed",
+        "not_completed": "Not completed",
+        "not_needed": "Not needed",
+    },
 }
 
 LEGAL_FIELD_HELP = {
@@ -64,6 +77,8 @@ LEGAL_FIELD_HELP = {
     "offense_category": "The type of offense associated with this case.",
     "employment_status": "Your current work situation.",
     "education_level": "The highest level of education you have completed.",
+    "program_completion": "For example a job-training or community program.",
+    "substance_treatment": "Choose whether substance-use treatment is completed, not completed, or not needed.",
 }
 
 HIRING_TARGET = "hired"
@@ -113,6 +128,14 @@ DATASET_CONFIG = {
                     "direction": "increase",
                     "order": ["secondary", "certificate", "college", "graduate"],
                 },
+                "program_completion": {
+                    "direction": "increase",
+                    "order": ["no", "yes"],
+                },
+                "substance_treatment": {
+                    "direction": "increase",
+                    "order": ["not_completed", "not_needed", "completed"],
+                },
             },
             "dependency_rules": [
                 {
@@ -128,6 +151,9 @@ DATASET_CONFIG = {
                 "prior_offenses": 5.0,
                 "offense_category": 7.0,
                 "employment_status": 3.0,
+                "program_completion": 2.5,
+                "substance_treatment": 2.5,
+                "education_level": 2.5,
             },
         },
 
@@ -135,6 +161,8 @@ DATASET_CONFIG = {
             "prior_offenses": [0, 6],
             "employment_status": "observed",
             "education_level": "observed",
+            "program_completion": "observed",
+            "substance_treatment": "observed",
         },
 
         "description": (
@@ -255,6 +283,16 @@ def generate_legal_dataset(
         n_samples,
         p=[0.42, 0.25, 0.24, 0.09],
     )
+    program_completion = rng.choice(
+        ["yes", "no"],
+        n_samples,
+        p=[0.38, 0.62],
+    )
+    substance_treatment = rng.choice(
+        ["completed", "not_completed", "not_needed"],
+        n_samples,
+        p=[0.25, 0.35, 0.40],
+    )
     legal_group = rng.choice(
         ["Group A", "Group B"],
         n_samples,
@@ -272,6 +310,8 @@ def generate_legal_dataset(
         - (education_level == "certificate") * 0.05
         - (education_level == "college") * 0.12
         - (education_level == "graduate") * 0.18
+        - (program_completion == "yes") * 0.25
+        - (substance_treatment == "completed") * 0.20
         - (age >= 45) * 0.20
         + rng.normal(0, 0.8, n_samples)
     )
@@ -293,6 +333,8 @@ def generate_legal_dataset(
             "offense_category": offense_category,
             "employment_status": employment_status,
             "education_level": education_level,
+            "program_completion": program_completion,
+            "substance_treatment": substance_treatment,
             LEGAL_PROTECTED: legal_group,
             LEGAL_TARGET: risk_category,
         }
