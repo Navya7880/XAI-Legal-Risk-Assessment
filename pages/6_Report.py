@@ -47,27 +47,49 @@ counterfactual_quality = (
     else None
 )
 @st.cache_data
-def _cached_fairness(dataset_name: str, model_name: str, y_true, predictions, groups):
-    return audit_fairness(y_true, predictions, groups)
+def _cached_report_fairness(dataset_name: str, model_name: str):
+    model_result = get_model(dataset_name, model_name)
+    full_data = get_datasets()[dataset_name]
+    protected_attribute = (
+        LEGAL_PROTECTED
+        if dataset_name == "Legal risk (synthetic)"
+        else HIRING_GENDER
+    )
+    groups = full_data.loc[model_result["y_test"].index, protected_attribute]
+    before = audit_fairness(
+        model_result["y_test"],
+        model_result["predictions"],
+        groups,
+    )
+
+    flipped = model_result["x_test"].copy()
+    flipped[protected_attribute] = groups.reindex(flipped.index)
+    flip_changed = 0
+    protected_values = pd.unique(groups.dropna())
+    if len(protected_values) >= 2:
+        value_map = {
+            protected_values[0]: protected_values[-1],
+            protected_values[-1]: protected_values[0],
+        }
+        flipped[protected_attribute] = flipped[protected_attribute].map(
+            value_map
+        ).fillna(flipped[protected_attribute])
+        flipped_predictions = model_result["pipeline"].predict(flipped)
+        flip_changed = sum(
+            before_prediction != after_prediction
+            for before_prediction, after_prediction in zip(
+                model_result["predictions"],
+                flipped_predictions,
+            )
+        )
+
+    return before, groups, protected_attribute, float(
+        flip_changed / max(len(model_result["predictions"]), 1)
+    )
 
 with st.spinner("Computing fairness results for this scenario…"):
-    protected_attribute = LEGAL_PROTECTED if dataset_name == "Legal risk (synthetic)" else HIRING_GENDER
-    full_data = get_datasets()[dataset_name]
-    if protected_attribute in full_data.columns:
-        groups = full_data.loc[result["y_test"].index, protected_attribute]
-    else:
-        groups = pd.Series(
-            ["Group A" if position % 2 == 0 else "Group B"
-             for position in range(len(result["y_test"]))],
-            index=result["y_test"].index,
-            name=protected_attribute,
-        )
-    before = _cached_fairness(
-        dataset_name,
-        model_name,
-        result["y_test"],
-        result["predictions"],
-        groups,
+    before, groups, protected_attribute, counterfactual_fairness_share = (
+        _cached_report_fairness(dataset_name, model_name)
     )
 fairness = {
     "before": before,
@@ -81,6 +103,8 @@ fairness = {
     "groups": groups,
     "y_true": result["y_test"],
     "predictions_before": result["predictions"],
+    "protected_attribute": protected_attribute,
+    "counterfactual_fairness_share": counterfactual_fairness_share,
 }
 
 st.subheader("1. Review the summary")
@@ -206,10 +230,16 @@ if st.button("Prepare HTML decision report", type="secondary"):
                     items.append("<li>" + ("; ".join(changes) if changes else "No changed fields") + "</li>")
                 cf_html = "".join(items)
 
-            fairness_text = "Fairness check not run in this session."
+            fairness_text = "No fairness result is available."
             if fairness:
+                before_fairness = fairness.get("before", {})
+                gap = before_fairness.get("demographic_parity_difference", None)
+                gap_text = f"{gap:.3f}" if isinstance(gap, float) else "N/A"
                 fairness_text = (
-                    f"Demographic-parity difference: {fairness.get('demographic_parity_difference', 'N/A')}. "
+                    f"Demographic-parity difference: "
+                    f"{gap_text}. "
+                    f"Counterfactual-fairness changed-prediction share: "
+                    f"{fairness.get('counterfactual_fairness_share', 0):.1%}. "
                     "This is a synthetic fairness result, not a legal finding."
                 )
 

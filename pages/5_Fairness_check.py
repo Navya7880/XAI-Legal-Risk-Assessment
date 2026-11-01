@@ -48,6 +48,11 @@ else:
 groups_test = groups.loc[result["y_test"].index]
 before = audit_fairness(result["y_test"], result["predictions"], groups_test)
 gap = before["demographic_parity_difference"]
+per_group = before["by_group"].reset_index()
+per_group = per_group.rename(columns={per_group.columns[0]: protected_attribute})
+per_group = per_group[[protected_attribute, "Selection rate", "Accuracy"]]
+st.subheader("Per-group results")
+st.dataframe(per_group, hide_index=True, width="stretch")
 if gap < 0.10:
     summary, summary_color = "Small gap", "#e8f5ee"
 elif gap < 0.20:
@@ -213,20 +218,23 @@ except (ValueError, RuntimeError, TypeError) as error:
 st.subheader("Protected-attribute flip test")
 flipped = result["x_test"].copy()
 changed_predictions = 0
-if protected_attribute in flipped.columns:
-    values = pd.unique(flipped[protected_attribute].dropna())
-    if len(values) >= 2:
-        value_map = {values[0]: values[-1], values[-1]: values[0]}
-        flipped[protected_attribute] = flipped[protected_attribute].map(value_map).fillna(flipped[protected_attribute])
-        changed_predictions = int(
-            sum(
-                before_prediction != after_prediction
-                for before_prediction, after_prediction in zip(
-                    result["predictions"],
-                    result["pipeline"].predict(flipped),
-                )
+flipped[protected_attribute] = groups_test.reindex(flipped.index)
+values = pd.unique(groups_test.dropna())
+if len(values) >= 2:
+    value_map = {values[0]: values[-1], values[-1]: values[0]}
+    flipped[protected_attribute] = flipped[protected_attribute].map(value_map).fillna(
+        flipped[protected_attribute]
+    )
+    flipped_predictions = result["pipeline"].predict(flipped)
+    changed_predictions = int(
+        sum(
+            before_prediction != after_prediction
+            for before_prediction, after_prediction in zip(
+                result["predictions"],
+                flipped_predictions,
             )
         )
+    )
 flip_share = changed_predictions / max(len(result["predictions"]), 1)
 st.metric("Share of predictions changed by flipping the attribute", f"{flip_share:.1%}")
 st.caption("The protected attribute is excluded from model inputs, so this check is also a useful evidence of model dependence rather than a guaranteed real-world test.")

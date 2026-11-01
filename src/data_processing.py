@@ -468,7 +468,9 @@ def validate_dataset(
     config = DATASET_CONFIG[dataset_name]
 
     required_columns = (
-        config["features"] + [config["target"]]
+        config["features"]
+        + [config["target"]]
+        + ([config["sensitive"]] if config.get("sensitive") else [])
     )
 
     missing = [
