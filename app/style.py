@@ -85,6 +85,13 @@ def apply_style() -> None:
             border-radius: 8px !important;
             overflow: hidden !important;
         }
+        [data-testid="stSidebar"] [data-baseweb="select"] input::placeholder,
+        [data-testid="stSidebar"] [data-baseweb="select"] [aria-placeholder="true"],
+        [data-testid="stSidebar"] [data-baseweb="select"] [data-baseweb="select"]::placeholder {
+            color: #1B2733 !important;
+            -webkit-text-fill-color: #1B2733 !important;
+            opacity: 1 !important;
+        }
         [data-testid="stSidebar"] [data-baseweb="select"] svg,
         [data-baseweb="select"] svg {
             color: #1B2733 !important;
@@ -119,6 +126,12 @@ def apply_style() -> None:
         [data-baseweb="popover"] [role="option"][aria-selected="true"] * {
             color: #1B2733 !important;
             -webkit-text-fill-color: #1B2733 !important;
+        }
+        [data-baseweb="popover"] [role="option"][aria-current="true"],
+        [data-baseweb="popover"] [role="option"][data-highlighted="true"],
+        [data-baseweb="popover"] [role="option"]:focus {
+            background: #E3F2F1 !important;
+            color: #1B2733 !important;
         }
         [data-testid="stWidgetLabel"] p,
         [data-testid="stWidgetLabel"] label,
@@ -221,6 +234,37 @@ def apply_style() -> None:
         .stPageLink > a * {
             color: #FFFFFF !important;
             -webkit-text-fill-color: #FFFFFF !important;
+        }
+        .stButton > button,
+        .stButton > button:focus,
+        .stButton > button:focus-visible,
+        .stButton > button:hover,
+        .stButton > button:active,
+        .stButton > button:disabled,
+        .stFormSubmitButton > button,
+        .stFormSubmitButton > button:focus,
+        .stFormSubmitButton > button:focus-visible,
+        .stFormSubmitButton > button:hover,
+        .stFormSubmitButton > button:active,
+        .stFormSubmitButton > button:disabled,
+        .stDownloadButton > button,
+        .stDownloadButton > button:focus,
+        .stDownloadButton > button:focus-visible,
+        .stDownloadButton > button:hover,
+        .stDownloadButton > button:active,
+        .stDownloadButton > button:disabled {
+            opacity: 1 !important;
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
+        }
+        .stButton > button:focus,
+        .stButton > button:focus-visible,
+        .stFormSubmitButton > button:focus,
+        .stFormSubmitButton > button:focus-visible,
+        .stDownloadButton > button:focus,
+        .stDownloadButton > button:focus-visible {
+            outline: 3px solid #8FC8CE !important;
+            outline-offset: 2px !important;
         }
         .xai-card, [data-testid="stMetric"] {
             background: #FFFFFF !important;

@@ -627,7 +627,9 @@ def generate_counterfactuals(
     if target == "risk_category" and "substance_treatment" in selected_features:
         original_treatment = str(record.get("substance_treatment", "")).strip().lower()
         if original_treatment == "not_completed":
-            resolved_ranges["substance_treatment"] = ["not_completed", "completed"]
+            resolved_ranges["substance_treatment"] = ["completed"]
+        elif original_treatment in {"completed", "not_needed"}:
+            resolved_ranges["substance_treatment"] = [original_treatment]
 
     continuous_features = [
         feature
@@ -939,9 +941,9 @@ def generate_counterfactuals(
                         record.get("substance_treatment", "")
                     ).strip().lower()
                     if original_treatment == "not_completed":
-                        allowed = ["not_completed", "completed"]
-                    else:
-                        allowed = [original_treatment]
+                        allowed = ["completed"]
+                    elif original_treatment in {"completed", "not_needed"}:
+                        continue
                 if not allowed:
                     continue
                 value_options.append((feature, allowed))
@@ -973,15 +975,6 @@ def generate_counterfactuals(
                     if changed_fields == 0:
                         continue
                     candidate["__changed_fields__"] = changed_fields
-                    exhaustive_candidates_found += 1
-                    if checker is not None:
-                        passed, _ = checker.check(candidate, record)
-                        if not passed:
-                            exhaustive_rejected += 1
-                            continue
-                        exhaustive_passed_rules += 1
-                    else:
-                        exhaustive_passed_rules += 1
                     exhaustive_rows.append(candidate)
 
                 if exhaustive_rows:
@@ -1001,6 +994,15 @@ def generate_counterfactuals(
                                 candidate.to_dict(),
                             )
                         ):
+                            exhaustive_candidates_found += 1
+                            if checker is not None:
+                                passed, _ = checker.check(candidate.to_dict(), record)
+                                if not passed:
+                                    exhaustive_rejected += 1
+                                    continue
+                                exhaustive_passed_rules += 1
+                            else:
+                                exhaustive_passed_rules += 1
                             flipping.append(candidate)
 
                     flipping.sort(key=lambda row: row["__changed_fields__"])
@@ -1042,9 +1044,7 @@ def generate_counterfactuals(
             else "complete search"
         )
     else:
-        verified.attrs["method_used"] = (
-            "complete search" if len(verified) == 0 and exhaustive_candidates_found else method_used
-        )
+        verified.attrs["method_used"] = method_used
     verified.attrs["alternative_sources"] = alternative_sources
     verified.attrs["exhaustive_candidates_found"] = exhaustive_candidates_found
     verified.attrs["exhaustive_rejected"] = exhaustive_rejected
