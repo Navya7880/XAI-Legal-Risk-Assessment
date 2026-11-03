@@ -19,7 +19,7 @@ A Streamlit academic demonstrator for black-box classifier explanations using Di
 
 ## Requirements
 
-Use Python 3.11, 3.12, or 3.13. Runtime dependencies are listed in `requirements.txt`; development/test dependencies are in `requirements-dev.txt`. DiCE and Fairlearn are constrained to their tested minor versions because their backend and mitigation APIs are used directly.
+Use Python 3.11, 3.12, or 3.13. Runtime and test dependencies are listed in `requirements.txt`. DiCE and Fairlearn are constrained to their tested minor versions because their backend and mitigation APIs are used directly.
 
 ### Run locally (Windows PowerShell)
 
@@ -29,7 +29,7 @@ From the folder containing `app.py`:
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
+python -m pip install -r requirements.txt
 python -c "from src.data_processing import ensure_datasets; ensure_datasets()"
 python -m pytest -q
 python -m streamlit run app.py

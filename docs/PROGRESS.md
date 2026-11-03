@@ -38,22 +38,6 @@ The measured machine-readable report is `reports/ablation_constraints.csv`; the 
 
 Re-run the ablation after changing model seeds, generation methods, dataset sizes, or constraint definitions because the report reflects measured outputs from that configuration.
 
-## Rigorous Counterfactual Evaluation
-
-Added a reproducible evaluation module in `src/evaluation/` comparing three DiCE search methods with nearest-unlike-neighbor and Wachter-style interpolation search. It evaluates both synthetic datasets and all three configured models over five seeds and 200 held-out instances.
-
-The runner reports validity, proximity, sparsity, diversity, plausibility, feasibility, runtime, 95% confidence intervals, Bonferroni-corrected paired Wilcoxon tests, and rank-biserial effect sizes. Run `make evaluate` to generate measured CSV, LaTeX, and publication figures under `reports/`; an Evaluation Streamlit page loads these reports with plain-language guidance.
-
-## Counterfactual Robustness
-
-`src/evaluation/robustness.py` measures three risks to recourse recommendations:
-
-- Explanation stability under small age and prior-offense perturbations, using changed-feature Jaccard similarity and mean counterfactual distance.
-- Counterfactual validity under the same model retrained on five bootstrap samples.
-- Stability across five DiCE random seeds.
-
-Results are written to `reports/robustness.csv` with charts in `reports/figures/`. A recourse recommendation that is valid before deployment but frequently invalid after retraining is risky: a user may follow instructions that no longer flip the updated model's decision. The Evaluation page therefore reports retained validity alongside the main quality metrics.
-
 ## Realism and Reporting Update
 
 The legal synthetic scenario now includes program completion, stable housing, substance treatment, and education level as actionable inputs. Models were retrained with these fields; prior offenses may remain unchanged or increase, but explanations reject decreases and changes to immutable fields. The explanation page now reports five plain-language quality metrics and a SHAP top-5 section. The Report page has spinner/error handling, per-decision HTML download, and a compliance mapping marked as a prototype rather than legal advice.

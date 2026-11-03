@@ -20,7 +20,10 @@ setup_page("Legal Risk Assessment | DiCE Explainability")
 # --------------------------------------------------
 
 def render_overview() -> None:
-    page_header("Home", "A plain-language tool for exploring synthetic risk and hiring scenarios.")
+    page_header(
+        "Home",
+        "A plain-language tool for exploring synthetic risk and hiring scenarios."
+    )
 
     st.markdown(
         """
@@ -32,20 +35,22 @@ def render_overview() -> None:
         """,
         unsafe_allow_html=True,
     )
+
     st.page_link(
         "pages/3_Assess_a_case.py",
         label="Try an example case",
         icon=":material/arrow_forward:",
-        width="content",
     )
 
     cards = st.columns(4)
+
     card_content = [
         ("Assess", "Enter a case and review a predicted category."),
         ("Explain", "See what inputs could change the result."),
         ("Check fairness", "Compare outcomes across groups."),
         ("Generate a report", "Download a concise decision summary."),
     ]
+
     for column, (title, text) in zip(cards, card_content):
         with column:
             st.markdown(

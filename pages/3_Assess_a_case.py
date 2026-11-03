@@ -51,6 +51,7 @@ example_columns = st.columns(
     len(examples),
     gap="small",
 )
+
 for column, (label, row) in zip(example_columns, examples.items()):
     with column:
         st.button(
@@ -58,17 +59,17 @@ for column, (label, row) in zip(example_columns, examples.items()):
             key=f"example_{dataset_name}_{label}",
             on_click=set_form_values,
             args=("risk", row, features, dataset_name),
-            width="stretch",
         )
 
+# Reset button
 reset_column = st.columns([5, 1], gap="small")[1]
+
 with reset_column:
     st.button(
         "Reset inputs",
         key=f"reset_{dataset_name}",
         on_click=reset_form_values,
         args=("risk", features),
-        width="stretch",
     )
 
 # Previous form values
@@ -82,6 +83,7 @@ initial_record = (
 with st.form(f"prediction_form_{dataset_name}"):
 
     if dataset_name == "Legal risk (synthetic)":
+
         display_config = config
         label_map = display_config.get("display_labels", {})
         option_map = display_config.get("display_options", {})
@@ -89,63 +91,145 @@ with st.form(f"prediction_form_{dataset_name}"):
         fixed_features = set(config.get("immutable_features", []))
 
         st.subheader("About the person")
+
         about_columns = st.columns(3)
+
         with about_columns[0]:
-            age_record = feature_form(data, ["age"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
+            age_record = feature_form(
+                data, ["age"], "risk",
+                initial_values=initial_record,
+                label_map=label_map,
+                option_map=option_map,
+                help_map=help_map,
+                fixed_features=fixed_features,
+            )
+
         with about_columns[1]:
-            offense_record = feature_form(data, ["prior_offenses"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
+            offense_record = feature_form(
+                data, ["prior_offenses"], "risk",
+                initial_values=initial_record,
+                label_map=label_map,
+                option_map=option_map,
+                help_map=help_map,
+                fixed_features=fixed_features,
+            )
+
         with about_columns[2]:
-            type_record = feature_form(data, ["offense_category"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
+            type_record = feature_form(
+                data, ["offense_category"], "risk",
+                initial_values=initial_record,
+                label_map=label_map,
+                option_map=option_map,
+                help_map=help_map,
+                fixed_features=fixed_features,
+            )
 
         st.subheader("Support and rehabilitation")
+
         support_columns = st.columns(2)
+
         with support_columns[0]:
-            program_record = feature_form(data, ["program_completion"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
+            program_record = feature_form(
+                data, ["program_completion"], "risk",
+                initial_values=initial_record,
+                label_map=label_map,
+                option_map=option_map,
+                help_map=help_map,
+                fixed_features=fixed_features,
+            )
+
         with support_columns[1]:
-            treatment_record = feature_form(data, ["substance_treatment"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
+            treatment_record = feature_form(
+                data, ["substance_treatment"], "risk",
+                initial_values=initial_record,
+                label_map=label_map,
+                option_map=option_map,
+                help_map=help_map,
+                fixed_features=fixed_features,
+            )
 
         st.subheader("Qualification")
+
         qualification_columns = st.columns(2)
+
         with qualification_columns[0]:
-            work_record = feature_form(data, ["employment_status"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
+            work_record = feature_form(
+                data, ["employment_status"], "risk",
+                initial_values=initial_record,
+                label_map=label_map,
+                option_map=option_map,
+                help_map=help_map,
+                fixed_features=fixed_features,
+            )
+
         with qualification_columns[1]:
-            education_record = feature_form(data, ["education_level"], "risk", initial_values=initial_record, label_map=label_map, option_map=option_map, help_map=help_map, fixed_features=fixed_features)
+            education_record = feature_form(
+                data, ["education_level"], "risk",
+                initial_values=initial_record,
+                label_map=label_map,
+                option_map=option_map,
+                help_map=help_map,
+                fixed_features=fixed_features,
+            )
 
         left_record = {}
         left_record.update(age_record)
         left_record.update(offense_record)
         left_record.update(type_record)
+
         middle_record = {}
         middle_record.update(program_record)
         middle_record.update(treatment_record)
         middle_record.update(work_record)
+
         right_record = {}
         right_record.update(education_record)
+
     elif len(features) >= 3:
+
         left_features = features[:2]
         middle_features = features[2:]
         right_features = []
+
     else:
+
         left_features = features
         middle_features = []
         right_features = []
 
     if dataset_name != "Legal risk (synthetic)":
-        left_column, middle_column, right_column = st.columns(3, gap="large")
+
+        left_column, middle_column, right_column = st.columns(
+            3, gap="large"
+        )
+
         with left_column:
-            left_record = feature_form(data, left_features, "risk", initial_values=initial_record)
+            left_record = feature_form(
+                data, left_features, "risk",
+                initial_values=initial_record,
+            )
+
         with middle_column:
-            middle_record = feature_form(data, middle_features, "risk", initial_values=initial_record)
+            middle_record = feature_form(
+                data, middle_features, "risk",
+                initial_values=initial_record,
+            )
+
         with right_column:
-            right_record = feature_form(data, right_features, "risk", initial_values=initial_record)
+            right_record = feature_form(
+                data, right_features, "risk",
+                initial_values=initial_record,
+            )
 
     # Model selection
     best_by_dataset = st.session_state.get(
         "best_model_by_dataset", {}
     )
+
     default_model = best_by_dataset.get(
         dataset_name, MODEL_NAMES[0]
     )
+
     model_name = st.selectbox(
         "Select model",
         MODEL_NAMES,
@@ -156,10 +240,10 @@ with st.form(f"prediction_form_{dataset_name}"):
         ),
         key=f"prediction_model_{dataset_name}",
     )
+
     submitted = st.form_submit_button(
         "See the model's prediction",
         type="primary",
-        width="stretch",
     )
 
     record = {**left_record, **middle_record, **right_record}
@@ -172,6 +256,7 @@ with st.form(f"prediction_form_{dataset_name}"):
 if submitted:
 
     try:
+
         if set(record) != set(features):
             raise ValueError(
                 "Choose a value for every input before continuing."
@@ -222,7 +307,9 @@ prediction_state = st.session_state.get("latest_prediction")
 matching_previous = (
     st.session_state.get("latest_dataset") == dataset_name
     and st.session_state.get("latest_model")
-    == st.session_state.get(f"prediction_model_{dataset_name}", MODEL_NAMES[0])
+    == st.session_state.get(
+        f"prediction_model_{dataset_name}", MODEL_NAMES[0]
+    )
 )
 
 if matching_previous and prediction_state:
@@ -232,8 +319,15 @@ if matching_previous and prediction_state:
 
     # Predicted category
     st.markdown("**Predicted category**")
+
     category = str(predicted)
-    category_class = "result-lower" if category.lower() == "lower" else "result-elevated"
+
+    category_class = (
+        "result-lower"
+        if category.lower() == "lower"
+        else "result-elevated"
+    )
+
     st.markdown(
         f'<span class="result-badge {category_class}">{category}</span>',
         unsafe_allow_html=True,
@@ -287,20 +381,22 @@ if matching_previous and prediction_state:
     st.divider()
     st.markdown("**Input summary**")
 
+    summary_data = pd.DataFrame(
+        [
+            {
+                "Input": FEATURE_LABELS.get(feature, feature),
+                "Chosen value": str(value),
+            }
+            for feature, value in st.session_state[
+                "latest_record"
+            ].items()
+        ]
+    )
+
     st.dataframe(
-        pd.DataFrame(
-            [
-                {
-                    "Input": FEATURE_LABELS.get(feature, feature),
-                    "Chosen value": str(value),
-                }
-                for feature, value in st.session_state[
-                    "latest_record"
-                ].items()
-            ]
-        ),
+        summary_data,
         hide_index=True,
-        width="stretch",
+        use_container_width=True,
     )
 
     # DiCE navigation
