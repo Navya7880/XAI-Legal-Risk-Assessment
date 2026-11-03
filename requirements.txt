@@ -1,5 +1,5 @@
 streamlit>=1.40,<2
-scikit-learn>=1.6,<2
+scikit-learn==1.6.1
 dice-ml>=0.12,<0.13
 fairlearn>=0.13,<0.14
 pandas>=2.2,<3
